@@ -14,13 +14,13 @@ Utilities that extend and play nicely with [core.async](https://github.com/cloju
 For Leiningen or Boot:
 
 ```clojure
-[app-sauce/async "0.5.0"]
+[app-sauce/async "0.6.0"]
 ```
 
 For deps.edn:
 
 ```clojure
-app-sauce/async {:mvn/version "0.5.0"}
+app-sauce/async {:mvn/version "0.6.0"}
 ```
 
 See the source for documentation on the API.
