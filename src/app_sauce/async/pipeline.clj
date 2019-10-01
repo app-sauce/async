@@ -22,10 +22,10 @@
     (worker/stop! worker)))
 
 
-(defn call
+(defn inject
   [this worker msg]
   (some-> (get this worker)
-          (worker/call msg)))
+          (worker/inject msg)))
 
 (defn dispatch
   [this worker msg]

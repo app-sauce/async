@@ -10,12 +10,12 @@
     [clojure.core.async :as async]))
 
 
-(defrecord Call [value prom])
+(defrecord Inject [value prom])
 
 (defn unwrap
   [msg]
   (when (some? msg)
-    (if (instance? Call msg)
+    (if (instance? Inject msg)
       msg
       {:value msg})))
 
@@ -23,7 +23,7 @@
 (defn start
   "Start a worker and return associated core.async channels. Work is received
   on an 'input' channel (`:in`) and results are sent to an 'output' channel
-  (`:out`). See the `dispatch` and `call` functions for convenient ways of
+  (`:out`). See the `dispatch` and `inject` functions for different ways of
   interacting with the worker.
 
   The caller can provide the output channel by specifying `outbox`. If there is
@@ -32,10 +32,16 @@
 
   The work is performed by the callback function. That function will be
   provided two arguments: the current version of `data` and the value that was
-  sent to the input channel. The callback function must return one of three values:
-    `nil`                     no change in `data and no output
-    `[new-data]`              new value for `data, but no output
-    `[new-data output-value]  new value for `data, and output is produced
+  sent to the input channel. The callback function must return a vector:
+  `nil`                        no change in `data` and no output
+  `[new-data]`                 new value for `data` but no output
+  `[new-data output-value]     new value for `data` and a value to output
+  `[new-data output1 output2]  new value for `data` and multiple output values
+
+  Additionally, when `inject` is used, the first value after `data` will be the
+  result returned to the promise:
+  `[new-data result]              a result for `inject` but no output
+  `[new-data result output1 ...]  a result for `inject` along with output values
 
   The initial value of `data` should be passed as the `initial-data` parameter."
   ([name-str initial-data callback]
@@ -47,9 +53,13 @@
        (.setName ^Thread (Thread/currentThread) (str "worker-" name-str))
        (loop [data initial-data]
          (when-some [{:keys [value prom]} (unwrap (async/<!! inbox))]
-           (let [[new-data result :as ret-val] (try (callback data value) (catch Throwable e [data e]))]
-             (when (and (some? result) outbox) (async/>!! outbox result))
-             (when prom (deliver prom result))
+           (let [[new-data & results :as ret-val] (try (callback data value) (catch Throwable e [data e]))]
+             (when outbox
+               (doseq [msg (->> (if prom (rest results) results)
+                                (filter some?))]
+                 (async/>!! outbox msg)))
+             (when prom
+               (deliver prom (first results)))
              (if (some? ret-val)
                (recur new-data)
                (recur data)))))
@@ -74,10 +84,10 @@
   [this value]
   (async/>!! (:in this) value))
 
-(defn call
+(defn inject
   "Returns a promise with the result from the worker. May block. The value of
   the promise will be nil if the worker has already stopped."
   [this value]
   (let [prom (promise)]
-    (when (async/>!! (:in this) (Call. value prom))
+    (when (async/>!! (:in this) (Inject. value prom))
       prom)))
