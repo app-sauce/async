@@ -3,7 +3,7 @@
   <modelVersion>4.0.0</modelVersion>
   <groupId>app-sauce</groupId>
   <artifactId>async</artifactId>
-  <version>0.5.0</version>
+  <version>0.6.0</version>
   <name>async</name>
   <dependencies>
     <dependency>
